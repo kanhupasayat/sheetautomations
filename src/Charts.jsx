@@ -108,7 +108,9 @@ export default function Charts({ data }) {
   const amountRangeData = useMemo(() => {
     const ranges = [
       { label: '1,199', min: 1199, max: 1199 },
-      { label: '1,489', min: 1489, max: 1489 },
+      { label: '1,399', min: 1399, max: 1399 },
+      { label: '1,489-1,499', min: 1489, max: 1499 },
+      { label: '1,649', min: 1649, max: 1649 },
       { label: '2,499-2,999', min: 2499, max: 2999 },
       { label: '3,999', min: 3999, max: 3999 },
       { label: '4,000-6,000', min: 4000, max: 6000 },
@@ -136,8 +138,8 @@ export default function Charts({ data }) {
   }, [data])
 
   const medicineData = useMemo(() => {
-    const meds = ['aegisMD', 'dynos', 'poseidonMD', 'vitaman', 'paropeace', 'heraclesMD', 'magmapureD3', 'omega3']
-    const labels = ['Aegis MD', 'Dynos', 'PoseidonMD', 'Vitaman', 'Paropeace', 'HeraclesMD', 'Magmapure-D3', 'Omega-3']
+    const meds = ['aegisMD', 'dynos', 'poseidonMD', 'vitaman', 'paropeace', 'anicob', 'heraclesMD', 'magmapureD3', 'omega3']
+    const labels = ['Aegis MD', 'Dynos', 'PoseidonMD', 'Vitaman', 'Paropeace', 'Anicob', 'HeraclesMD', 'Magmapure-D3', 'Omega-3']
     return meds.map((key, i) => {
       const total = data.reduce((s, r) => s + (parseInt(r[key]) || 0), 0)
       return { name: labels[i], total }
