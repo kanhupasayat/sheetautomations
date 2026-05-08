@@ -138,8 +138,8 @@ export default function Charts({ data }) {
   }, [data])
 
   const medicineData = useMemo(() => {
-    const meds = ['aegisMD', 'dynos', 'poseidonMD', 'vitaman', 'paropeace', 'anicob', 'heraclesMD', 'magmapureD3', 'omega3']
-    const labels = ['Aegis MD', 'Dynos', 'PoseidonMD', 'Vitaman', 'Paropeace', 'Anicob', 'HeraclesMD', 'Magmapure-D3', 'Omega-3']
+    const meds = ['aegisMD', 'dynos', 'poseidonMD', 'vitaman', 'anteros', 'anicob', 'heraclesMD', 'morpheusMD', 'magmapureD3', 'omega3', 'heliosMD', 'chronos25']
+    const labels = ['Aegis MD', 'Dynos', 'PoseidonMD', 'Vitaman', 'Anteros 12.5', 'Anicob', 'HeraclesMD', 'MorpheusMD', 'Magmapure-D3', 'Omega-3', 'HeliosMD', 'Chronos 25']
     return meds.map((key, i) => {
       const total = data.reduce((s, r) => s + (parseInt(r[key]) || 0), 0)
       return { name: labels[i], total }

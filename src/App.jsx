@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import Charts from './Charts'
 import AgentPerformance from './AgentPerformance'
 import DataAlerts from './DataAlerts'
+import StaffMapping from './StaffMapping'
+import ShopifyMatch from './ShopifyMatch'
+import SheetVerification from './SheetVerification'
 import './App.css'
 
 // Convert Google Sheet URL to CSV export URL
@@ -22,6 +25,111 @@ function sheetUrlToCsv(url) {
 }
 
 const STORAGE_KEY = 'sheetautomations_urls'
+const STAFF_MAPPING_KEY = 'sheetautomations_staff_mapping'
+
+const DEFAULT_STAFF_NAMES = [
+  ['deepak raghuwanshi', 'deepak raghu'],
+  ['naresh prajapati', 'naresh'],
+  ['mohan raghuwanshi', 'mohan raghu', 'mohan'],
+  ['mirza', 'mirza owais'],
+  ['tushar', 'tushar gupta'],
+  ['imran ansari', 'imran'],
+  ['alam uddin', 'alam'],
+  ['mohit', 'mohit kumar'],
+  ['manish kumar', 'manish'],
+  ['manish singh'],
+  ['firdaus', 'firdoush', 'firdaush'],
+  ['tarun', 'tarun pyase'],
+  ['amrit'],
+  ['riyan'],
+  ['rohit kumar'],
+  ['aniket', 'aniket kumar'],
+  ['nitin'],
+  ['deepak mahato', 'deepak mahto'],
+  ['faizan', 'faizan alam'],
+  ['mehtab'],
+  ['nikesh'],
+  ['prince kumar', 'prince'],
+  ['rohit'],
+  ['rohit choudhary'],
+  ['rohit singh'],
+  ['nayan', 'nayan pal'],
+  ['anant', 'anant singh'],
+  ['sagar', 'sagar nair'],
+  ['krishna', 'krishna kumar'],
+  ['anubhav', 'anubhav agarwal'],
+  ['rishabh', 'rishabh delhi'],
+  ['aman', 'aman ul'],
+  ['pradeep'],
+  ['shazib', 'shazab'],
+  ['sumit', 'sumit ratan'],
+  ['sumit raghuwanshi'],
+  ['deepak kumar', 'deepak'],
+  ['syed fardeen', 'fardeen'],
+  ['neeraj', 'neeraj raghuwanshi'],
+  ['sachin', 'sachin rajput'],
+  ['sachin sharma'],
+  ['hazrat', 'hazrat selim sarkar'],
+  ['jitendra'],
+  ['aashish', 'ashish'],
+  ['avnish'],
+  ['sukhvinder', 'sukhvinder singh'],
+  ['aakash', 'aakash sharma'],
+  ['akash gautam'],
+  ['abdur', 'abdur rahman'],
+  ['abu shahid sarkar'],
+  ['adarsh'],
+  ['aditya'],
+  ['adnan'],
+  ['amit kumar verma'],
+  ['andrew'],
+  ['anil'],
+  ['ankit', 'ankit kumar saxena'],
+  ['anuj chola'],
+  ['anurag'],
+  ['arya'],
+  ['ashutosh', 'ashutosh kumar', 'asutosh'],
+  ['atta ur rehman', 'atta ur'],
+  ['beeki'],
+  ['brijesh'],
+  ['chetan'],
+  ['dayeen', 'md dayeen al asad'],
+  ['devendra', 'devendra kumar'],
+  ['fozlur', 'fozlur rahman'],
+  ['gulshan kumar'],
+  ['hariom singh'],
+  ['harkishan', 'harkishan singh'],
+  ['islam', 'shohidul islam'],
+  ['jagannath'],
+  ['javed'],
+  ['kunal'],
+  ['kuntal'],
+  ['md shoaib'],
+  ['mohd rehan', 'rehan'],
+  ['munsun'],
+  ['nihal', 'nihal karotia'],
+  ['nur'],
+  ['rahul namdeo'],
+  ['rajesh', 'rajesh kumar', 'rajeh kumar', 'rajkumar'],
+  ['ram'],
+  ['ronit', 'ronit chauhan'],
+  ['sahil'],
+  ['salman', 'syed mohiuddin salman'],
+  ['sanchit', 'sanhit'],
+  ['shahrukh ahmad'],
+  ['shobhit'],
+  ['sonu', 'sonu giri'],
+  ['sourav'],
+  ['sudhanshu'],
+  ['suhail khan'],
+  ['sunil'],
+  ['tanveer'],
+  ['vikash', 'vikash kumar'],
+  ['waskurni prodhani'],
+  ['yash'],
+  ['yogi'],
+  ['jayanti'],
+]
 
 function loadSavedUrls() {
   try {
@@ -34,6 +142,23 @@ function loadSavedUrls() {
 function saveUrls(config) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  } catch (e) {}
+}
+
+function loadStaffGroups() {
+  try {
+    const saved = localStorage.getItem(STAFF_MAPPING_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch (e) {}
+  return DEFAULT_STAFF_NAMES
+}
+
+function saveStaffGroups(groups) {
+  try {
+    localStorage.setItem(STAFF_MAPPING_KEY, JSON.stringify(groups))
   } catch (e) {}
 }
 
@@ -75,12 +200,15 @@ const ORDER_COLUMNS = [
   { key: 'dynos', label: 'Dynos' },
   { key: 'poseidonMD', label: 'PoseidonMD' },
   { key: 'vitaman', label: 'Vitaman' },
-  { key: 'paropeace', label: 'Paropeace' },
+  { key: 'anteros', label: 'Anteros 12.5' },
   { key: 'anicob', label: 'Anicob' },
   { key: 'heraclesMD', label: 'HeraclesMD' },
+  { key: 'morpheusMD', label: 'MorpheusMD' },
   { key: 'magmapureD3', label: 'Magmapure-D3' },
   { key: 'aegisMD', label: 'Aegis MD' },
   { key: 'omega3', label: 'Omega-3' },
+  { key: 'heliosMD', label: 'HeliosMD' },
+  { key: 'chronos25', label: 'Chronos 25' },
   { key: 'sourceID', label: 'Source ID' },
   { key: 'planType', label: 'Plan Type' },
   { key: 'orderType', label: 'Order Type' },
@@ -148,8 +276,8 @@ function normalizeDate(dateStr) {
   const d = dateStr.trim()
   // yyyy-mm-dd already (EOD sheets)
   if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
-  // dd/mm/yyyy or d/m/yyyy (Order sheet)
-  const slash = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  // dd/mm/yyyy, d/m/yyyy, dd-mm-yyyy, d-m-yyyy (Order sheet)
+  const slash = d.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/)
   if (slash) {
     let day = slash[1].padStart(2, '0')
     let month = slash[2].padStart(2, '0')
@@ -176,9 +304,34 @@ function parseSheetDate(dateStr) {
   return new Date(y, m - 1, d)
 }
 
+const ORDER_CHECK_KEY = 'matchtable_order_checks_v1'
+
+function getOrderKey(o) {
+  const id = (o.orderID || '').trim()
+  if (id) return `id:${id}`
+  return `pk:${(o.phone || '').trim()}|${(o.date || '').trim()}|${(o.orderAmount || '').trim()}|${(o.name || '').trim().toLowerCase()}`
+}
+
 function MatchTable({ data }) {
   const [expandedRow, setExpandedRow] = useState(null)
   const [subTab, setSubTab] = useState('both')
+  const [checkedOrders, setCheckedOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ORDER_CHECK_KEY)
+      return saved ? JSON.parse(saved) : {}
+    } catch { return {} }
+  })
+
+  function toggleCheck(o) {
+    const key = getOrderKey(o)
+    setCheckedOrders((prev) => {
+      const next = { ...prev }
+      if (next[key]) delete next[key]
+      else next[key] = true
+      try { localStorage.setItem(ORDER_CHECK_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
 
   if (data.length === 0) return <div className="no-data">No data found</div>
 
@@ -279,6 +432,7 @@ function MatchTable({ data }) {
                             <table className="inner-table">
                               <thead>
                                 <tr>
+                                  <th style={{ width: 36 }}>✓</th>
                                   <th>#</th>
                                   <th>Name</th>
                                   <th>Phone</th>
@@ -287,15 +441,26 @@ function MatchTable({ data }) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {row.orders.map((o, j) => (
-                                  <tr key={j}>
-                                    <td>{j + 1}</td>
-                                    <td><strong>{o.name}</strong></td>
-                                    <td>{o.phone || <span className="badge badge-mismatch">N/A</span>}</td>
-                                    <td>{o.supportStaff}</td>
-                                    <td className="amount">{o.orderAmount}</td>
-                                  </tr>
-                                ))}
+                                {row.orders.map((o, j) => {
+                                  const checked = !!checkedOrders[getOrderKey(o)]
+                                  return (
+                                    <tr key={j}>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => toggleCheck(o)}
+                                          style={{ cursor: 'pointer', width: 18, height: 18 }}
+                                        />
+                                      </td>
+                                      <td>{j + 1}</td>
+                                      <td><strong>{o.name}</strong></td>
+                                      <td>{o.phone || <span className="badge badge-mismatch">N/A</span>}</td>
+                                      <td>{o.supportStaff}</td>
+                                      <td className="amount">{o.orderAmount}</td>
+                                    </tr>
+                                  )
+                                })}
                               </tbody>
                             </table>
                           ) : <div className="no-data" style={{ padding: 12 }}>No orders found</div>}
@@ -517,6 +682,11 @@ function App() {
     search: '', agent: [], dateFrom: '', dateTo: '', singleDate: '',
   })
 
+  // Staff name groups (editable via Staff Mapping tab)
+  const [staffGroups, setStaffGroups] = useState(loadStaffGroups())
+
+  useEffect(() => { saveStaffGroups(staffGroups) }, [staffGroups])
+
   function addEodSheet() {
     const num = eodUrls.length + 1
     setEodUrls([...eodUrls, { url: '', name: `EOD ${num}`, type: `eod${num}` }])
@@ -655,6 +825,7 @@ function App() {
   }, [orderData, orderFilters])
 
   const totalAmount = useMemo(() => filteredOrders.reduce((s, r) => s + (parseFloat(r.orderAmount) || 0), 0), [filteredOrders])
+  const totalPrepay = useMemo(() => filteredOrders.reduce((s, r) => s + (parseFloat(r.prepayAmount) || 0), 0), [filteredOrders])
   const totalCOD = useMemo(() => filteredOrders.reduce((s, r) => s + (parseFloat(r.codAmount) || 0), 0), [filteredOrders])
 
   // Smart alerts for each order row
@@ -913,115 +1084,10 @@ function App() {
       orderDetailMap.get(key).push(row)
     })
 
-    // Hardcoded staff name mapping - each array = same person
-    const STAFF_NAMES = [
-      ['deepak raghuwanshi', 'deepak raghu'],
-      ['naresh prajapati', 'naresh'],
-      ['mohan raghuwanshi', 'mohan raghu', 'mohan'],
-      ['mirza', 'mirza owais'],
-      ['tushar', 'tushar gupta'],
-      ['imran ansari', 'imran'],
-      ['alam uddin', 'alam'],
-      ['mohit', 'mohit kumar'],
-      ['manish kumar', 'manish'],
-      ['manish singh'],
-      ['firdaus', 'firdoush', 'firdaush'],
-      ['tarun', 'tarun pyase'],
-      ['amrit'],
-      ['riyan'],
-      ['rohit kumar'],
-      ['aniket', 'aniket kumar'],
-      ['nitin'],
-      ['deepak mahato', 'deepak mahto'],
-      ['faizan', 'faizan alam'],
-      ['mehtab'],
-      ['nikesh'],
-      ['prince kumar', 'prince'],
-      ['rohit'],
-      ['rohit choudhary'],
-      ['rohit singh'],
-      ['nayan', 'nayan pal'],
-      ['anant', 'anant singh'],
-      ['sagar', 'sagar nair'],
-      ['krishna', 'krishna kumar'],
-      ['anubhav', 'anubhav agarwal'],
-      ['rishabh', 'rishabh delhi'],
-      ['aman', 'aman ul'],
-      ['pradeep'],
-      ['shazib', 'shazab'],
-      ['sumit', 'sumit ratan'],
-      ['sumit raghuwanshi'],
-      ['deepak kumar', 'deepak'],
-      ['syed fardeen', 'fardeen'],
-      ['neeraj', 'neeraj raghuwanshi'],
-      ['sachin', 'sachin rajput'],
-      ['sachin sharma'],
-      ['hazrat', 'hazrat selim sarkar'],
-      ['jitendra'],
-      ['aashish', 'ashish'],
-      ['avnish'],
-      ['sukhvinder', 'sukhvinder singh'],
-      ['aakash', 'aakash sharma'],
-      ['akash gautam'],
-      ['abdur', 'abdur rahman'],
-      ['abu shahid sarkar'],
-      ['adarsh'],
-      ['aditya'],
-      ['adnan'],
-      ['amit kumar verma'],
-      ['andrew'],
-      ['anil'],
-      ['ankit', 'ankit kumar saxena'],
-      ['anuj chola'],
-      ['anurag'],
-      ['arya'],
-      ['ashutosh', 'ashutosh kumar', 'asutosh'],
-      ['atta ur rehman', 'atta ur'],
-      ['beeki'],
-      ['brijesh'],
-      ['chetan'],
-      ['dayeen', 'md dayeen al asad'],
-      ['devendra', 'devendra kumar'],
-      ['fozlur', 'fozlur rahman'],
-      ['gulshan kumar'],
-      ['hariom singh'],
-      ['harkishan', 'harkishan singh'],
-      ['islam', 'shohidul islam'],
-      ['jagannath'],
-      ['javed'],
-      ['kunal'],
-      ['kuntal'],
-      ['md shoaib'],
-      ['mohd rehan', 'rehan'],
-      ['munsun'],
-      ['nihal', 'nihal karotia'],
-      ['nur'],
-      ['rahul namdeo'],
-      ['rajesh', 'rajesh kumar', 'rajeh kumar', 'rajkumar'],
-      ['ram'],
-      ['ronit', 'ronit chauhan'],
-      ['sahil'],
-      ['salman', 'syed mohiuddin salman'],
-      ['sanchit', 'sanhit'],
-      ['shahrukh ahmad'],
-      ['shobhit'],
-      ['sonu', 'sonu giri'],
-      ['sourav'],
-      ['sudhanshu'],
-      ['suhail khan'],
-      ['sunil'],
-      ['tanveer'],
-      ['vikash', 'vikash kumar'],
-      ['waskurni prodhani'],
-      ['yash'],
-      ['yogi'],
-      ['jayanti'],
-    ]
-
-    // Build lookup: name -> group id
+    // Build lookup: name -> group id (from user-editable state)
     const nameGroupMap = new Map()
-    STAFF_NAMES.forEach((group, idx) => {
-      group.forEach((name) => nameGroupMap.set(name, idx))
+    staffGroups.forEach((group, idx) => {
+      group.forEach((name) => nameGroupMap.set(name.trim().toLowerCase(), idx))
     })
 
     function getGroupId(name) {
@@ -1074,7 +1140,7 @@ function App() {
       })
     })
     return results.sort((a, b) => a.date.localeCompare(b.date) || a.agent.localeCompare(b.agent))
-  }, [eodData, orderData])
+  }, [eodData, orderData, staffGroups])
 
   const filteredMatch = useMemo(() => {
     return matchData.filter((row) => {
@@ -1229,8 +1295,11 @@ function App() {
           </button>
           <button className={tab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>Analytics</button>
           <button className={tab === 'agents' ? 'tab active' : 'tab'} onClick={() => setTab('agents')}>Agent Performance</button>
+          <button className={tab === 'verify' ? 'tab active' : 'tab'} onClick={() => setTab('verify')}>Verification</button>
           <button className={tab === 'alerts' ? 'tab active' : 'tab'} onClick={() => setTab('alerts')}>Data Alerts</button>
           <button className={tab === 'search' ? 'tab active' : 'tab'} onClick={() => setTab('search')}>Link Search</button>
+          <button className={tab === 'staff' ? 'tab active' : 'tab'} onClick={() => setTab('staff')}>Staff Names</button>
+          <button className={tab === 'shopify' ? 'tab active' : 'tab'} onClick={() => setTab('shopify')}>Shopify</button>
           <button className="tab settings-btn" onClick={() => setShowSetup(true)}>Settings</button>
         </div>
       </div>
@@ -1241,6 +1310,7 @@ function App() {
           <div className="stats-row">
             <div className="stat-box purple"><div className="num">{filteredOrders.length}</div><div className="label">Orders</div></div>
             <div className="stat-box green"><div className="num">{totalAmount.toLocaleString('en-IN')}</div><div className="label">Total Amt</div></div>
+            <div className="stat-box green"><div className="num">{totalPrepay.toLocaleString('en-IN')}</div><div className="label">Total Prepay</div></div>
             <div className="stat-box red"><div className="num">{totalCOD.toLocaleString('en-IN')}</div><div className="label">Total COD</div></div>
           </div>
 
@@ -1396,11 +1466,27 @@ function App() {
       {/* ===== AGENT PERFORMANCE TAB ===== */}
       {tab === 'agents' && <AgentPerformance data={orderData} />}
 
+      {/* ===== VERIFICATION TAB ===== */}
+      {tab === 'verify' && <SheetVerification data={orderData} />}
+
       {/* ===== DATA ALERTS TAB ===== */}
       {tab === 'alerts' && <DataAlerts data={orderData} eodData={eodData} />}
 
       {/* ===== LINK SEARCH TAB ===== */}
       {tab === 'search' && <LinkSearch eodData={eodData} allDuplicates={allDuplicates} />}
+
+      {/* ===== STAFF MAPPING TAB ===== */}
+      {tab === 'staff' && (
+        <StaffMapping
+          orderData={orderData}
+          eodData={eodData}
+          staffGroups={staffGroups}
+          onUpdate={setStaffGroups}
+        />
+      )}
+
+      {/* ===== SHOPIFY TAB ===== */}
+      {tab === 'shopify' && <ShopifyMatch orderData={orderData} />}
 
       {/* ===== DUPLICATES TAB ===== */}
       {tab === 'duplicates' && (

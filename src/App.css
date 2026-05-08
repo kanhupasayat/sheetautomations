@@ -1073,3 +1073,139 @@ tr:hover {
   .chart-nav { flex-wrap: wrap; justify-content: center; }
   .summary-card { padding: 16px; }
 }
+
+/* ===== Staff Mapping ===== */
+.unmatched-chip {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.unmatched-chip:hover {
+  background: #f59e0b;
+  color: white;
+}
+
+.alias-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 4px 4px 10px;
+  border-radius: 14px;
+  font-size: 13px;
+  border: 1px solid #c7d2fe;
+}
+
+.chip-x {
+  background: transparent;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 6px;
+  border-radius: 50%;
+  font-weight: bold;
+}
+.chip-x:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.chip-add {
+  background: #f1f5f9;
+  border: 1px dashed #94a3b8;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.chip-add:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  border-style: solid;
+}
+
+.chip-cancel {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chip-delete-group {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.chip-delete-group:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.assign-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.assign-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.assign-scroll {
+  overflow-y: auto;
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.assign-group-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.assign-group-btn:hover {
+  background: #eef2ff;
+  border-color: #667eea;
+}
