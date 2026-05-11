@@ -25,7 +25,7 @@ function sheetUrlToCsv(url) {
 }
 
 const STORAGE_KEY = 'sheetautomations_urls'
-const STAFF_MAPPING_KEY = 'sheetautomations_staff_mapping_v2'
+const STAFF_MAPPING_KEY = 'sheetautomations_staff_mapping_v3'
 
 const DEFAULT_STAFF_NAMES = [
   ['shazan'],
@@ -46,7 +46,7 @@ const DEFAULT_STAFF_NAMES = [
   ['omprakash', 'om prakash'],
   ['shazib', 'shazib ahmed'],
   ['faizan', 'faizan alam'],
-  ['rohit 3'],
+  ['rohit 3', 'rohit'],
   ['neeraj', 'neeraj raghuwanshi'],
   ['sanchit'],
   ['anubhav'],
