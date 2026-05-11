@@ -267,7 +267,7 @@ export default function TargetTracker({ data }) {
     const items = []
 
     if (stats.progressPct >= 100) {
-      items.push({ icon: '🎉', tone: 'success', title: 'TARGET ACHIEVED!', text: `Bhai mubarak! ₹${formatINR(stats.achieved)} ho gaya. Ab ${formatINRShort(stats.achieved - config.monthlyTarget)} extra hai.` })
+      items.push({ icon: '🎉', tone: 'success', title: 'TARGET ACHIEVED!', text: `Congratulations! ₹${formatINR(stats.achieved)} reached. You are now ${formatINRShort(stats.achieved - config.monthlyTarget)} above target.` })
       return items
     }
 
@@ -281,7 +281,7 @@ export default function TargetTracker({ data }) {
       icon: '🎯',
       tone: stats.paceStatus === 'behind' ? 'danger' : stats.paceStatus === 'ahead' ? 'success' : 'warn',
       title: `Daily Required: ₹${formatINR(stats.requiredDaily)}`,
-      text: `${stats.daysLeft} din bache hain. Roz ₹${formatINR(stats.requiredDaily)} chahiye target hit karne ke liye. (Ideal tha ₹${formatINR(stats.idealDaily)})`,
+      text: `${stats.daysLeft} days remaining. Need ₹${formatINR(stats.requiredDaily)} per day to hit the target. (Ideal was ₹${formatINR(stats.idealDaily)})`,
     })
 
     // Pace
@@ -290,21 +290,21 @@ export default function TargetTracker({ data }) {
         icon: '🔴',
         tone: 'danger',
         title: `Behind by ${Math.abs(stats.pacePct).toFixed(1)}%`,
-        text: `${formatINRShort(Math.abs(stats.paceDiff))} kam ho gaya schedule se. Catch up karne ke liye daily push badhao.`,
+        text: `${formatINRShort(Math.abs(stats.paceDiff))} short of schedule. Increase daily push to catch up.`,
       })
     } else if (stats.paceStatus === 'ahead') {
       items.push({
         icon: '🟢',
         tone: 'success',
         title: `Ahead by ${stats.pacePct.toFixed(1)}%`,
-        text: `Bhai badhiya! ${formatINRShort(stats.paceDiff)} extra hai schedule se. Pace maintain karo.`,
+        text: `Great work! ${formatINRShort(stats.paceDiff)} ahead of schedule. Maintain this pace.`,
       })
     } else {
       items.push({
         icon: '🟡',
         tone: 'warn',
         title: 'On Track',
-        text: `Schedule pe ho. Roz ka pace banaye rakho.`,
+        text: `Right on schedule. Maintain the daily pace.`,
       })
     }
 
@@ -313,8 +313,8 @@ export default function TargetTracker({ data }) {
       items.push({
         icon: '📦',
         tone: 'info',
-        title: `Daily ${stats.ordersNeededDaily} Orders Chahiye`,
-        text: `Average order ₹${formatINR(stats.avgOrderValue)} hai. Daily ₹${formatINR(stats.requiredDaily)} ke liye ${stats.ordersNeededDaily} orders karne padenge.`,
+        title: `Need ${stats.ordersNeededDaily} Orders Daily`,
+        text: `Average order is ₹${formatINR(stats.avgOrderValue)}. To hit ₹${formatINR(stats.requiredDaily)} per day, you need ${stats.ordersNeededDaily} orders.`,
       })
     }
 
@@ -324,14 +324,14 @@ export default function TargetTracker({ data }) {
         icon: '📉',
         tone: 'danger',
         title: `Projected Shortfall: ${formatINRShort(stats.projectedShortfall)}`,
-        text: `Is rate (${formatINRShort(stats.actualDailyAvg)}/day) se chala to month end pe ₹${formatINR(stats.projection)} hoga. ${formatINRShort(stats.projectedShortfall)} kam padega.`,
+        text: `At this rate (${formatINRShort(stats.actualDailyAvg)}/day), month-end total will be ₹${formatINR(stats.projection)}. You will fall short by ${formatINRShort(stats.projectedShortfall)}.`,
       })
     } else if (stats.projectedShortfall < 0 && stats.daysPassed >= 3) {
       items.push({
         icon: '📈',
         tone: 'success',
         title: `Projected Surplus: ${formatINRShort(Math.abs(stats.projectedShortfall))}`,
-        text: `Is rate se chala to ₹${formatINR(stats.projection)} hoga - target se ${formatINRShort(Math.abs(stats.projectedShortfall))} zyada.`,
+        text: `At this rate, month-end total will be ₹${formatINR(stats.projection)} — ${formatINRShort(Math.abs(stats.projectedShortfall))} above target.`,
       })
     }
 
@@ -340,8 +340,8 @@ export default function TargetTracker({ data }) {
       items.push({
         icon: '🔄',
         tone: 'info',
-        title: `Repeat Rate Sirf ${stats.repeatPct.toFixed(1)}%`,
-        text: `Repeat orders sirf ${stats.repeatCount} hain. Agar repeat rate 40% hota to ${formatINRShort(stats.achieved * 0.15)} extra revenue aata.`,
+        title: `Repeat Rate Only ${stats.repeatPct.toFixed(1)}%`,
+        text: `Only ${stats.repeatCount} repeat orders. If repeat rate were 40%, you would earn an extra ${formatINRShort(stats.achieved * 0.15)}.`,
       })
     }
 
@@ -352,7 +352,7 @@ export default function TargetTracker({ data }) {
         icon: '💸',
         tone: 'warn',
         title: `COD Ratio High (${codRatio.toFixed(1)}%)`,
-        text: `COD me ₹${formatINR(stats.achievedCOD)} hai. Prepay push karo - cancellations kam honge aur cash flow better hoga.`,
+        text: `₹${formatINR(stats.achievedCOD)} stuck in COD. Push prepay to reduce cancellations and improve cash flow.`,
       })
     }
 
@@ -362,7 +362,7 @@ export default function TargetTracker({ data }) {
         icon: '💰',
         tone: 'info',
         title: `Avg Order Value ₹${formatINR(stats.avgOrderValue)}`,
-        text: `AOV thoda kam hai. Upgrade plans ya bundles offer karke ₹2500+ tak laao - target jaldi hit hoga.`,
+        text: `AOV is low. Offer upgrade plans or bundles to push it above ₹2,500 — target will be hit faster.`,
       })
     }
 
@@ -374,7 +374,7 @@ export default function TargetTracker({ data }) {
         icon: '👨‍⚕️',
         tone: 'info',
         title: `Top 5 Doctors = ${topDocPct.toFixed(0)}% Revenue`,
-        text: `${topDoctors.map((d) => d.name).slice(0, 3).join(', ')} sabse zyada laate hain. Inko aur push karo.`,
+        text: `${topDoctors.map((d) => d.name).slice(0, 3).join(', ')} drive the most revenue. Push these doctors harder.`,
       })
     }
 
@@ -499,7 +499,7 @@ export default function TargetTracker({ data }) {
         <div className="target-kpi-card purple">
           <div className="target-kpi-label">Days Passed</div>
           <div className="target-kpi-val">{stats.daysPassed} / {stats.workingDays}</div>
-          <div className="target-kpi-sub">{stats.daysLeft} din bache</div>
+          <div className="target-kpi-sub">{stats.daysLeft} days left</div>
         </div>
         <div className="target-kpi-card teal">
           <div className="target-kpi-label">Ideal Daily</div>
@@ -514,7 +514,7 @@ export default function TargetTracker({ data }) {
         <div className="target-kpi-card red">
           <div className="target-kpi-label">Required/Day</div>
           <div className="target-kpi-val">{formatINRShort(stats.requiredDaily)}</div>
-          <div className="target-kpi-sub">target hit karne ke liye</div>
+          <div className="target-kpi-sub">to hit the target</div>
         </div>
         <div className="target-kpi-card blue">
           <div className="target-kpi-label">Today {isCurrentMonth ? '' : '(N/A)'}</div>
@@ -525,7 +525,7 @@ export default function TargetTracker({ data }) {
 
       {/* === Smart Action Items === */}
       <div className="target-actions">
-        <h3 className="target-section-title">🎯 Kya Karna Padega (Action Plan)</h3>
+        <h3 className="target-section-title">🎯 Action Plan — What To Do</h3>
         <div className="target-action-grid">
           {actionItems.map((item, i) => (
             <div key={i} className={`target-action-card target-action-${item.tone}`}>
