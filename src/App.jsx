@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import Charts from './Charts'
 import TargetTracker from './TargetTracker'
+import MonthCompare from './MonthCompare'
 import AgentPerformance from './AgentPerformance'
 import DataAlerts from './DataAlerts'
 import StaffMapping from './StaffMapping'
@@ -624,9 +625,14 @@ function App() {
   const [error, setError] = useState(null)
 
   // Setup form
-  const [orderUrl, setOrderUrl] = useState(savedConfig?.orderUrl || '')
+  const [orderUrls, setOrderUrls] = useState(() => {
+    if (savedConfig?.orderUrls && Array.isArray(savedConfig.orderUrls)) return savedConfig.orderUrls
+    // backward compat - convert old single orderUrl
+    if (savedConfig?.orderUrl) return [{ url: savedConfig.orderUrl, name: 'Orders' }]
+    return [{ url: '', name: 'Orders' }]
+  })
   const [eodUrls, setEodUrls] = useState(savedConfig?.eodUrls || [{ url: '', name: 'EOD 1', type: 'eod1' }])
-  const [orderCsvFile, setOrderCsvFile] = useState(null)
+  const [orderCsvFiles, setOrderCsvFiles] = useState([])
   const [eodCsvFiles, setEodCsvFiles] = useState([])
 
   // Order filters
@@ -660,6 +666,21 @@ function App() {
     setEodUrls(updated)
   }
 
+  function addOrderSheet() {
+    const num = orderUrls.length + 1
+    setOrderUrls([...orderUrls, { url: '', name: `Sheet ${num}` }])
+  }
+
+  function removeOrderSheet(idx) {
+    setOrderUrls(orderUrls.filter((_, i) => i !== idx))
+  }
+
+  function updateOrderSheet(idx, field, value) {
+    const updated = [...orderUrls]
+    updated[idx] = { ...updated[idx], [field]: value }
+    setOrderUrls(updated)
+  }
+
   function readFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -669,7 +690,7 @@ function App() {
     })
   }
 
-  function fetchData(orderCsvUrl, eodSheets, orderFile, eodFiles) {
+  function fetchData(orderSheets, eodSheets, orderFiles, eodFiles) {
     setLoading(true)
     setError(null)
 
@@ -678,34 +699,51 @@ function App() {
       return r.text()
     })
 
-    // Order: file first, then URL
-    const orderPromise = orderFile
-      ? readFile(orderFile)
-      : orderCsvUrl ? fetchCsv(sheetUrlToCsv(orderCsvUrl), 'Order sheet') : Promise.resolve('')
+    // Order sheets: files first, then URLs (all combined into array)
+    const orderPromises = []
+    if (orderFiles && orderFiles.length > 0) {
+      orderFiles.forEach((of) => {
+        orderPromises.push(readFile(of.file).then((text) => ({ text, name: of.name })))
+      })
+    }
+    orderSheets.filter((s) => s.url.trim()).forEach((sheet) => {
+      orderPromises.push(
+        fetchCsv(sheetUrlToCsv(sheet.url), sheet.name || 'Order sheet').then((text) => ({ text, name: sheet.name }))
+      )
+    })
 
     // EOD: files first, then URLs
     const eodPromises = []
-    // Add file-based EODs
     if (eodFiles && eodFiles.length > 0) {
       eodFiles.forEach((ef) => {
         eodPromises.push(readFile(ef.file).then((text) => ({ text, name: ef.name, type: ef.type })))
       })
     }
-    // Add URL-based EODs
     eodSheets.filter((s) => s.url.trim()).forEach((sheet) => {
       eodPromises.push(
         fetchCsv(sheetUrlToCsv(sheet.url), sheet.name || 'EOD sheet').then((text) => ({ text, name: sheet.name, type: sheet.type }))
       )
     })
 
-    Promise.all([orderPromise, ...eodPromises])
-      .then(([orderText, ...eodResults]) => {
-        if (orderText) {
-          const orderLines = parseCSV(orderText)
+    const orderCount = orderPromises.length
+    Promise.all([...orderPromises, ...eodPromises])
+      .then((all) => {
+        const orderResults = all.slice(0, orderCount)
+        const eodResults = all.slice(orderCount)
+        const allOrders = []
+        orderResults.forEach(({ text, name }) => {
+          const orderLines = parseCSV(text)
           if (orderLines.length > 1) {
-            setOrderData(orderLines.slice(1).map(orderRowToObj).filter((r) => r.name))
+            orderLines.slice(1).forEach((row) => {
+              const obj = orderRowToObj(row)
+              if (obj.name) {
+                obj._sheetSource = name
+                allOrders.push(obj)
+              }
+            })
           }
-        }
+        })
+        setOrderData(allOrders)
         const allEod = []
         eodResults.forEach(({ text, name, type }) => {
           const lines = parseCSV(text)
@@ -724,14 +762,19 @@ function App() {
   }
 
   function handleLoadData() {
-    const config = { orderUrl, eodUrls }
+    const config = { orderUrls, eodUrls }
     saveUrls(config)
-    fetchData(orderUrl, eodUrls, orderCsvFile, eodCsvFiles)
+    fetchData(orderUrls, eodUrls, orderCsvFiles, eodCsvFiles)
   }
 
-  function handleOrderFileChange(e) {
+  function handleOrderFileChange(e, name) {
     const file = e.target.files[0]
-    if (file) setOrderCsvFile(file)
+    if (file) {
+      setOrderCsvFiles((prev) => {
+        const filtered = prev.filter((f) => f.name !== name)
+        return [...filtered, { file, name }]
+      })
+    }
   }
 
   function handleEodFileChange(e, name, type) {
@@ -747,7 +790,14 @@ function App() {
   // Auto-load on first mount if saved config exists
   useEffect(() => {
     if (savedConfig) {
-      fetchData(savedConfig.orderUrl, savedConfig.eodUrls)
+      // Backward compat: old config had orderUrl (string), new has orderUrls (array)
+      let savedOrderSheets = savedConfig.orderUrls
+      if (!savedOrderSheets && savedConfig.orderUrl) {
+        savedOrderSheets = [{ url: savedConfig.orderUrl, name: 'Orders' }]
+      }
+      if (savedOrderSheets) {
+        fetchData(savedOrderSheets, savedConfig.eodUrls || [], [], [])
+      }
     }
   }, [])
 
@@ -1160,25 +1210,47 @@ function App() {
           </div>
 
           <div className="setup-section">
-            <h3>Order Sheet</h3>
-            <div className="setup-or-row">
-              <div className="setup-option">
-                <label className="setup-label">URL</label>
-                <input
-                  type="text"
-                  className="setup-input"
-                  placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."
-                  value={orderUrl}
-                  onChange={(e) => setOrderUrl(e.target.value)}
-                />
-              </div>
-              <span className="setup-or">OR</span>
-              <div className="setup-option">
-                <label className="setup-label">Upload CSV</label>
-                <input type="file" accept=".csv" className="setup-file" onChange={handleOrderFileChange} />
-                {orderCsvFile && <span className="file-name">{orderCsvFile.name}</span>}
-              </div>
+            <div className="setup-section-header">
+              <h3>Order Sheets</h3>
+              <button className="setup-add-btn" onClick={addOrderSheet}>+ Add Another Sheet</button>
             </div>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px 0' }}>
+              Upload multiple month sheets (e.g. April, May) — they will be merged automatically and sorted by date.
+            </p>
+            {orderUrls.map((sheet, idx) => (
+              <div key={idx} className="setup-eod-card">
+                <div className="setup-eod-top">
+                  <input
+                    type="text"
+                    className="setup-input-name"
+                    placeholder="Sheet name (e.g. April, May)"
+                    value={sheet.name}
+                    onChange={(e) => updateOrderSheet(idx, 'name', e.target.value)}
+                  />
+                  {orderUrls.length > 1 && (
+                    <button className="setup-remove-btn" onClick={() => removeOrderSheet(idx)}>X</button>
+                  )}
+                </div>
+                <div className="setup-or-row">
+                  <div className="setup-option">
+                    <label className="setup-label">URL</label>
+                    <input
+                      type="text"
+                      className="setup-input"
+                      placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."
+                      value={sheet.url}
+                      onChange={(e) => updateOrderSheet(idx, 'url', e.target.value)}
+                    />
+                  </div>
+                  <span className="setup-or">OR</span>
+                  <div className="setup-option">
+                    <label className="setup-label">Upload CSV</label>
+                    <input type="file" accept=".csv" className="setup-file" onChange={(e) => handleOrderFileChange(e, sheet.name)} />
+                    {orderCsvFiles.find((f) => f.name === sheet.name) && <span className="file-name">{orderCsvFiles.find((f) => f.name === sheet.name).file.name}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="setup-section">
@@ -1258,6 +1330,7 @@ function App() {
           </button>
           <button className={tab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>Analytics</button>
           <button className={tab === 'target' ? 'tab active' : 'tab'} onClick={() => setTab('target')}>🎯 Target</button>
+          <button className={tab === 'compare' ? 'tab active' : 'tab'} onClick={() => setTab('compare')}>📊 Month Compare</button>
           <button className={tab === 'agents' ? 'tab active' : 'tab'} onClick={() => setTab('agents')}>Agent Performance</button>
           <button className={tab === 'verify' ? 'tab active' : 'tab'} onClick={() => setTab('verify')}>Verification</button>
           <button className={tab === 'alerts' ? 'tab active' : 'tab'} onClick={() => setTab('alerts')}>Data Alerts</button>
@@ -1429,6 +1502,9 @@ function App() {
 
       {/* ===== TARGET TRACKER TAB ===== */}
       {tab === 'target' && <TargetTracker data={orderData} />}
+
+      {/* ===== MONTH COMPARE TAB ===== */}
+      {tab === 'compare' && <MonthCompare data={orderData} />}
 
       {/* ===== AGENT PERFORMANCE TAB ===== */}
       {tab === 'agents' && <AgentPerformance data={orderData} />}

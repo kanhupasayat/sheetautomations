@@ -80,6 +80,14 @@ export default function TargetTracker({ data }) {
   const [editingTarget, setEditingTarget] = useState(false)
   const [tempTarget, setTempTarget] = useState('')
 
+  // What-If Simulator state
+  const [whatIf, setWhatIf] = useState({
+    extraOrdersPerAgentPerDay: 0,
+    aovIncrease: 0,
+    repeatRateBoost: 0,
+    codToPrepayPct: 0,
+  })
+
   useEffect(() => { saveConfig(config) }, [config])
 
   const selectedMonth = config.selectedMonth || getCurrentMonthKey()
@@ -381,6 +389,44 @@ export default function TargetTracker({ data }) {
     return items
   }, [stats, config.monthlyTarget, topDoctors])
 
+  // === What-If Simulator calculations ===
+  const whatIfProjection = useMemo(() => {
+    const baseProjection = stats.projection
+    const activeAgents = agentTargets.length || 1
+    const daysLeft = stats.daysLeft
+
+    // Lever 1: Extra orders per agent per day
+    const extraOrders = whatIf.extraOrdersPerAgentPerDay * activeAgents * daysLeft
+    const extraOrdersRevenue = extraOrders * stats.avgOrderValue
+
+    // Lever 2: AOV increase impact
+    // Apply only to remaining orders (those that will come)
+    const remainingOrdersAtCurrentRate = stats.daysLeft * (stats.daysPassed > 0 ? stats.totalOrderCount / stats.daysPassed : 0)
+    const totalFutureOrders = remainingOrdersAtCurrentRate + extraOrders
+    const aovImpact = totalFutureOrders * whatIf.aovIncrease
+
+    // Lever 3: Repeat rate boost
+    // Each extra repeat % adds proportional revenue (repeat orders are usually higher value)
+    const repeatBoostRevenue = (whatIf.repeatRateBoost / 100) * stats.achieved * 0.4
+    // 0.4 multiplier = repeat orders typically contribute 40% more lifetime value per increase
+
+    // Lever 4: COD → Prepay conversion (reduces cancellation, recovers lost revenue)
+    // Assume 15% of COD gets cancelled normally
+    const codAmountLeft = stats.daysLeft > 0 ? (stats.achievedCOD / Math.max(1, stats.daysPassed)) * stats.daysLeft : 0
+    const codSaved = codAmountLeft * (whatIf.codToPrepayPct / 100) * 0.15
+
+    const totalExtra = extraOrdersRevenue + aovImpact + repeatBoostRevenue + codSaved
+    const newProjection = baseProjection + totalExtra
+    const newShortfall = config.monthlyTarget - newProjection
+    const hitsTarget = newProjection >= config.monthlyTarget
+
+    return {
+      baseProjection, newProjection, totalExtra, newShortfall, hitsTarget,
+      extraOrdersRevenue, aovImpact, repeatBoostRevenue, codSaved,
+      extraOrders, activeAgents, daysLeft,
+    }
+  }, [whatIf, stats, agentTargets.length, config.monthlyTarget])
+
   const handleSaveTarget = () => {
     const num = parseFloat(tempTarget.replace(/[^\d.]/g, ''))
     if (!isNaN(num) && num > 0) {
@@ -536,6 +582,156 @@ export default function TargetTracker({ data }) {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* === What-If Simulator === */}
+      <div className="whatif-section" style={{ marginTop: 24 }}>
+        <h3 className="target-section-title">🔮 What-If Simulator — How To Hit The Target</h3>
+        <p className="target-section-subtitle">
+          Move sliders to see how each action changes the month-end projection. Current pace projection: <strong>{formatINRShort(whatIfProjection.baseProjection)}</strong>
+        </p>
+
+        <div className="whatif-projection-card">
+          <div className="whatif-proj-side">
+            <div className="whatif-proj-label">Current Pace</div>
+            <div className="whatif-proj-val">{formatINRShort(whatIfProjection.baseProjection)}</div>
+            <div className="whatif-proj-sub">No changes</div>
+          </div>
+          <div className="whatif-proj-arrow">→</div>
+          <div className={`whatif-proj-side ${whatIfProjection.hitsTarget ? 'whatif-success' : ''}`}>
+            <div className="whatif-proj-label">With Changes</div>
+            <div className="whatif-proj-val">{formatINRShort(whatIfProjection.newProjection)}</div>
+            <div className="whatif-proj-sub">
+              {whatIfProjection.hitsTarget
+                ? `🎯 TARGET HIT! +${formatINRShort(-whatIfProjection.newShortfall)} surplus`
+                : `Still ${formatINRShort(whatIfProjection.newShortfall)} short`}
+            </div>
+          </div>
+          <div className="whatif-proj-side whatif-extra">
+            <div className="whatif-proj-label">Extra Revenue</div>
+            <div className="whatif-proj-val">{formatINRShort(whatIfProjection.totalExtra)}</div>
+            <div className="whatif-proj-sub">from your levers</div>
+          </div>
+        </div>
+
+        <div className="whatif-grid">
+          {/* Lever 1: Extra orders per agent */}
+          <div className="whatif-lever">
+            <div className="whatif-lever-head">
+              <span className="whatif-lever-icon">📦</span>
+              <div>
+                <div className="whatif-lever-title">Extra Orders Per Agent Per Day</div>
+                <div className="whatif-lever-sub">{whatIfProjection.activeAgents} active agents × {whatIfProjection.daysLeft} days left</div>
+              </div>
+            </div>
+            <div className="whatif-slider-row">
+              <input
+                type="range" min="0" max="5" step="1"
+                value={whatIf.extraOrdersPerAgentPerDay}
+                onChange={(e) => setWhatIf((w) => ({ ...w, extraOrdersPerAgentPerDay: parseInt(e.target.value) }))}
+              />
+              <span className="whatif-slider-val">+{whatIf.extraOrdersPerAgentPerDay} orders</span>
+            </div>
+            <div className="whatif-impact">
+              <span className="whatif-impact-label">Extra revenue:</span>
+              <strong>{formatINRShort(whatIfProjection.extraOrdersRevenue)}</strong>
+              <span className="whatif-impact-detail">({whatIfProjection.extraOrders} extra orders × ₹{formatINR(stats.avgOrderValue)} AOV)</span>
+            </div>
+          </div>
+
+          {/* Lever 2: AOV increase */}
+          <div className="whatif-lever">
+            <div className="whatif-lever-head">
+              <span className="whatif-lever-icon">💰</span>
+              <div>
+                <div className="whatif-lever-title">Increase AOV By</div>
+                <div className="whatif-lever-sub">Current AOV: ₹{formatINR(stats.avgOrderValue)} — push premium plans/bundles</div>
+              </div>
+            </div>
+            <div className="whatif-slider-row">
+              <input
+                type="range" min="0" max="2000" step="100"
+                value={whatIf.aovIncrease}
+                onChange={(e) => setWhatIf((w) => ({ ...w, aovIncrease: parseInt(e.target.value) }))}
+              />
+              <span className="whatif-slider-val">+₹{whatIf.aovIncrease}</span>
+            </div>
+            <div className="whatif-impact">
+              <span className="whatif-impact-label">Extra revenue:</span>
+              <strong>{formatINRShort(whatIfProjection.aovImpact)}</strong>
+              <span className="whatif-impact-detail">(applied to all future orders)</span>
+            </div>
+          </div>
+
+          {/* Lever 3: Repeat rate */}
+          <div className="whatif-lever">
+            <div className="whatif-lever-head">
+              <span className="whatif-lever-icon">🔄</span>
+              <div>
+                <div className="whatif-lever-title">Boost Repeat Rate By</div>
+                <div className="whatif-lever-sub">Current: {stats.repeatPct.toFixed(1)}% — better follow-ups, retention calls</div>
+              </div>
+            </div>
+            <div className="whatif-slider-row">
+              <input
+                type="range" min="0" max="30" step="1"
+                value={whatIf.repeatRateBoost}
+                onChange={(e) => setWhatIf((w) => ({ ...w, repeatRateBoost: parseInt(e.target.value) }))}
+              />
+              <span className="whatif-slider-val">+{whatIf.repeatRateBoost}%</span>
+            </div>
+            <div className="whatif-impact">
+              <span className="whatif-impact-label">Extra revenue:</span>
+              <strong>{formatINRShort(whatIfProjection.repeatBoostRevenue)}</strong>
+              <span className="whatif-impact-detail">(target: {(stats.repeatPct + whatIf.repeatRateBoost).toFixed(1)}% repeat rate)</span>
+            </div>
+          </div>
+
+          {/* Lever 4: COD → Prepay */}
+          <div className="whatif-lever">
+            <div className="whatif-lever-head">
+              <span className="whatif-lever-icon">💸</span>
+              <div>
+                <div className="whatif-lever-title">Convert COD → Prepay</div>
+                <div className="whatif-lever-sub">15% of COD gets cancelled. Converting saves revenue.</div>
+              </div>
+            </div>
+            <div className="whatif-slider-row">
+              <input
+                type="range" min="0" max="100" step="5"
+                value={whatIf.codToPrepayPct}
+                onChange={(e) => setWhatIf((w) => ({ ...w, codToPrepayPct: parseInt(e.target.value) }))}
+              />
+              <span className="whatif-slider-val">{whatIf.codToPrepayPct}% converted</span>
+            </div>
+            <div className="whatif-impact">
+              <span className="whatif-impact-label">Saved revenue:</span>
+              <strong>{formatINRShort(whatIfProjection.codSaved)}</strong>
+              <span className="whatif-impact-detail">(less cancellations + better cash flow)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="whatif-reset-row">
+          <button
+            className="target-btn-cancel"
+            onClick={() => setWhatIf({ extraOrdersPerAgentPerDay: 0, aovIncrease: 0, repeatRateBoost: 0, codToPrepayPct: 0 })}
+          >
+            Reset All Sliders
+          </button>
+          <button
+            className="target-btn-save"
+            onClick={() => setWhatIf({ extraOrdersPerAgentPerDay: 2, aovIncrease: 300, repeatRateBoost: 10, codToPrepayPct: 50 })}
+          >
+            Try Aggressive Push
+          </button>
+          <button
+            className="target-btn-edit"
+            onClick={() => setWhatIf({ extraOrdersPerAgentPerDay: 1, aovIncrease: 150, repeatRateBoost: 5, codToPrepayPct: 25 })}
+          >
+            Try Moderate Push
+          </button>
         </div>
       </div>
 
