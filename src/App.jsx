@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import Charts from './Charts'
 import AgentPerformance from './AgentPerformance'
 import DataAlerts from './DataAlerts'
@@ -352,8 +352,8 @@ function MatchTable({ data }) {
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <>
-              <tr key={`row-${i}`} className={row.match ? 'row-match' : 'row-mismatch'} style={{ cursor: 'pointer' }}
+            <Fragment key={i}>
+              <tr className={row.match ? 'row-match' : 'row-mismatch'} style={{ cursor: 'pointer' }}
                 onClick={() => setExpandedRow(expandedRow === i ? null : i)}>
                 <td>
                   <span className="expand-arrow">{expandedRow === i ? '\u25BC' : '\u25B6'}</span>
@@ -373,7 +373,7 @@ function MatchTable({ data }) {
                 </td>
               </tr>
               {expandedRow === i && (
-                <tr key={`detail-${i}`} className="links-row">
+                <tr className="links-row">
                   <td colSpan={8}>
                     <div className="links-dropdown">
                       <div className="match-tabs">
@@ -480,7 +480,7 @@ function MatchTable({ data }) {
                   </td>
                 </tr>
               )}
-            </>
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -715,10 +715,15 @@ function App() {
     setLoading(true)
     setError(null)
 
+    const fetchCsv = (url, label) => fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`${label} load failed (HTTP ${r.status}). Check if sheet is public/shared correctly.`)
+      return r.text()
+    })
+
     // Order: file first, then URL
     const orderPromise = orderFile
       ? readFile(orderFile)
-      : orderCsvUrl ? fetch(sheetUrlToCsv(orderCsvUrl)).then((r) => r.text()) : Promise.resolve('')
+      : orderCsvUrl ? fetchCsv(sheetUrlToCsv(orderCsvUrl), 'Order sheet') : Promise.resolve('')
 
     // EOD: files first, then URLs
     const eodPromises = []
@@ -731,7 +736,7 @@ function App() {
     // Add URL-based EODs
     eodSheets.filter((s) => s.url.trim()).forEach((sheet) => {
       eodPromises.push(
-        fetch(sheetUrlToCsv(sheet.url)).then((r) => r.text()).then((text) => ({ text, name: sheet.name, type: sheet.type }))
+        fetchCsv(sheetUrlToCsv(sheet.url), sheet.name || 'EOD sheet').then((text) => ({ text, name: sheet.name, type: sheet.type }))
       )
     })
 
@@ -1060,17 +1065,16 @@ function App() {
 
   // --- Matching: EOD vs Orders ---
   const matchData = useMemo(() => {
-    // Group EOD by agent+date: use ALL original links (not deduped) for display
+    // Group EOD by agent+date: count = actual links submitted (works for all EOD types,
+    // including EOD 2 where the third column is a deal ID, not a count)
     const eodMap = new Map()
     eodData.forEach((row) => {
       const key = `${row.agentName.trim().toLowerCase()}|${normalizeDate(row.reportDate)}`
       if (!eodMap.has(key)) {
-        eodMap.set(key, { agent: row.agentName.trim(), date: row.reportDate, eodCount: parseInt(row.dealNumber) || 0, links: [] })
+        eodMap.set(key, { agent: row.agentName.trim(), date: row.reportDate, links: [] })
       }
       const entry = eodMap.get(key)
       if (row.dealLink) entry.links.push({ link: row.dealLink, source: row.source })
-      const num = parseInt(row.dealNumber) || 0
-      if (num > entry.eodCount) entry.eodCount = num
     })
 
     // Group Orders by supportStaff+date (with details)
@@ -1127,14 +1131,15 @@ function App() {
     eodMap.forEach((val) => {
       const date = normalizeDate(val.date)
       const orders = findOrders(val.agent, date)
-      const match = val.eodCount === orders.length
+      const eodCount = val.links.length
+      const match = eodCount === orders.length
       results.push({
         agent: val.agent,
         date: val.date,
-        eodCount: val.eodCount,
+        eodCount,
         orderCount: orders.length,
         match,
-        diff: val.eodCount - orders.length,
+        diff: eodCount - orders.length,
         links: val.links,
         orders,
       })

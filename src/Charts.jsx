@@ -66,6 +66,22 @@ export default function Charts({ data }) {
   }, [data])
 
   const dailyData = useMemo(() => {
+    // Convert any date format to sortable yyyy-mm-dd key
+    const toSortKey = (s) => {
+      if (!s) return ''
+      const d = s.trim()
+      if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
+      const m = d.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/)
+      if (m) {
+        const day = m[1].padStart(2, '0')
+        const month = m[2].padStart(2, '0')
+        let year = parseInt(m[3])
+        if (year < 100) year += 2000
+        return `${year}-${month}-${day}`
+      }
+      return d
+    }
+
     const map = new Map()
     data.forEach((r) => {
       const d = r.date?.trim()
@@ -78,8 +94,8 @@ export default function Charts({ data }) {
       e.prepay += parseFloat(r.prepayAmount) || 0
     })
     return [...map.entries()]
-      .map(([date, v]) => ({ date: date.replace(/\/2026$/, ''), fullDate: date, ...v }))
-      .sort((a, b) => a.fullDate.split('/').reverse().join('').localeCompare(b.fullDate.split('/').reverse().join('')))
+      .map(([date, v]) => ({ date: date.replace(/\/2026$/, ''), fullDate: date, _sort: toSortKey(date), ...v }))
+      .sort((a, b) => a._sort.localeCompare(b._sort))
   }, [data])
 
   const orderTypeData = useMemo(() => {

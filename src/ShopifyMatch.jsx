@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 
 // Same column order as the main Order Sheet (keep in sync with App.jsx ORDER_COLUMNS)
 const ORDER_SHEET_KEYS = [
@@ -1029,8 +1029,8 @@ function ShopifyMatch({ orderData = [] }) {
                     const fulLower = ful.toLowerCase()
                     const rowClass = !r._phone ? 'row-alert-orange' : r._matched ? 'row-match' : 'row-mismatch'
                     return (
-                      <>
-                        <tr key={`r-${i}`} className={rowClass} style={{ cursor: 'pointer' }} onClick={() => setExpandedRow(expandedRow === i ? null : i)}>
+                      <Fragment key={i}>
+                        <tr className={rowClass} style={{ cursor: 'pointer' }} onClick={() => setExpandedRow(expandedRow === i ? null : i)}>
                           <td><span className="expand-arrow">{expandedRow === i ? '▼' : '▶'}</span></td>
                           <td>{i + 1}</td>
                           <td><strong>{(cols.name && r[cols.name]) || ''}</strong></td>
@@ -1053,7 +1053,7 @@ function ShopifyMatch({ orderData = [] }) {
                           </td>
                         </tr>
                         {expandedRow === i && (
-                          <tr key={`d-${i}`} className="links-row">
+                          <tr className="links-row">
                             <td colSpan={10}>
                               <div className="links-dropdown" style={{ padding: 12 }}>
                                 {r._matched && r._sheetMatches.length > 0 && (
@@ -1115,7 +1115,7 @@ function ShopifyMatch({ orderData = [] }) {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tbody>
@@ -1189,8 +1189,8 @@ function ShopifyMatch({ orderData = [] }) {
                     const expanded = expandedReconPhone === row.phone
                     const rowClass = row.missingCount > 0 ? 'row-mismatch' : row.extraCount > 0 ? 'row-cross-dupe' : 'row-match'
                     return (
-                      <>
-                        <tr key={`r-${row.phone}`} className={rowClass} style={{ cursor: 'pointer' }} onClick={() => setExpandedReconPhone(expanded ? null : row.phone)}>
+                      <Fragment key={row.phone}>
+                        <tr className={rowClass} style={{ cursor: 'pointer' }} onClick={() => setExpandedReconPhone(expanded ? null : row.phone)}>
                           <td><span className="expand-arrow">{expanded ? '▼' : '▶'}</span></td>
                           <td>{i + 1}</td>
                           <td><strong>{row.phone}</strong></td>
@@ -1306,7 +1306,7 @@ function ShopifyMatch({ orderData = [] }) {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tbody>
