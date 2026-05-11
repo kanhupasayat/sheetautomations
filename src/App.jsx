@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import Charts from './Charts'
+import TargetTracker from './TargetTracker'
 import AgentPerformance from './AgentPerformance'
 import DataAlerts from './DataAlerts'
 import StaffMapping from './StaffMapping'
@@ -1256,6 +1257,7 @@ function App() {
             Duplicates {allDuplicates.length > 0 && <span className="tab-badge">{allDuplicates.length}</span>}
           </button>
           <button className={tab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>Analytics</button>
+          <button className={tab === 'target' ? 'tab active' : 'tab'} onClick={() => setTab('target')}>🎯 Target</button>
           <button className={tab === 'agents' ? 'tab active' : 'tab'} onClick={() => setTab('agents')}>Agent Performance</button>
           <button className={tab === 'verify' ? 'tab active' : 'tab'} onClick={() => setTab('verify')}>Verification</button>
           <button className={tab === 'alerts' ? 'tab active' : 'tab'} onClick={() => setTab('alerts')}>Data Alerts</button>
@@ -1424,6 +1426,9 @@ function App() {
       )}
       {/* ===== CHARTS TAB ===== */}
       {tab === 'charts' && <Charts data={filteredOrders} />}
+
+      {/* ===== TARGET TRACKER TAB ===== */}
+      {tab === 'target' && <TargetTracker data={orderData} />}
 
       {/* ===== AGENT PERFORMANCE TAB ===== */}
       {tab === 'agents' && <AgentPerformance data={orderData} />}
