@@ -90,9 +90,7 @@ export default function DataAlerts({ data, eodData = [] }) {
   }, [eodData])
 
   const phoneMissing = missingData.filter((r) => r.missingFields.includes('Phone')).length
-  const amountMissing = missingData.filter((r) => r.missingFields.includes('Order Amount')).length
   const doctorMissing = missingData.filter((r) => r.missingFields.includes('Doctor')).length
-  const staffMissing = missingData.filter((r) => r.missingFields.includes('Support Staff')).length
 
   const badLinks = [...linkIssues.empty, ...linkIssues.broken, ...linkIssues.suspicious]
 
@@ -194,11 +192,14 @@ export default function DataAlerts({ data, eodData = [] }) {
                   <th>Doctor</th>
                   <th>Amount</th>
                   <th>Staff</th>
+                  <th>Notes</th>
                   <th>Missing Fields</th>
                 </tr>
               </thead>
               <tbody>
-                {missingData.map((row, i) => (
+                {missingData.map((row, i) => {
+                  const noteText = [row.notes, row.deliveryNotes].filter((n) => n && n.trim()).join(' | ')
+                  return (
                   <tr key={i} className="row-mismatch">
                     <td>{i + 1}</td>
                     <td>{row.rowIndex}</td>
@@ -208,13 +209,17 @@ export default function DataAlerts({ data, eodData = [] }) {
                     <td>{row.doctor || <span className="badge badge-mismatch">Empty</span>}</td>
                     <td>{row.orderAmount || <span className="badge badge-mismatch">Empty</span>}</td>
                     <td>{row.supportStaff || <span className="badge badge-mismatch">Empty</span>}</td>
+                    <td style={{ maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      {noteText ? <span className="badge badge-notes">{noteText}</span> : <span style={{ opacity: 0.4 }}>—</span>}
+                    </td>
                     <td>
                       {row.missingFields.map((f) => (
                         <span key={f} className="badge badge-mismatch" style={{ marginRight: 4 }}>{f}</span>
                       ))}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           )}
