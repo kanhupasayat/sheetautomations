@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Fragment } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 const COLORS = ['#667eea', '#764ba2', '#f97316', '#16a34a', '#dc2626', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6', '#eab308']
 
 export default function AgentPerformance({ data }) {
   const [sortBy, setSortBy] = useState('totalOrders')
+  const [expandedAgent, setExpandedAgent] = useState(null)
 
   const agentStats = useMemo(() => {
     const map = new Map()
-    const dateSet = new Map()
 
     data.forEach((r) => {
       const staff = r.supportStaff?.trim()
@@ -16,7 +16,7 @@ export default function AgentPerformance({ data }) {
       const lower = staff.toLowerCase()
 
       if (!map.has(lower)) {
-        map.set(lower, { name: staff, totalOrders: 0, totalAmount: 0, totalCOD: 0, totalPrepay: 0, dates: new Set() })
+        map.set(lower, { name: staff, totalOrders: 0, totalAmount: 0, totalCOD: 0, totalPrepay: 0, dates: new Set(), orders: [] })
       }
       const entry = map.get(lower)
       entry.totalOrders++
@@ -24,6 +24,7 @@ export default function AgentPerformance({ data }) {
       entry.totalCOD += parseFloat(r.codAmount) || 0
       entry.totalPrepay += parseFloat(r.prepayAmount) || 0
       if (r.date?.trim()) entry.dates.add(r.date.trim())
+      entry.orders.push(r)
     })
 
     return [...map.values()].map((a) => ({
@@ -88,6 +89,7 @@ export default function AgentPerformance({ data }) {
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Rank</th>
               <th>Agent</th>
               <th>Total Orders</th>
@@ -100,19 +102,72 @@ export default function AgentPerformance({ data }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((a, i) => (
-              <tr key={a.name}>
-                <td><strong>{i + 1}</strong></td>
-                <td><strong>{a.name}</strong></td>
-                <td>{a.totalOrders}</td>
-                <td className="amount">{a.totalAmount.toLocaleString('en-IN')}</td>
-                <td className="amount">{a.totalPrepay.toLocaleString('en-IN')}</td>
-                <td className="cod">{a.totalCOD.toLocaleString('en-IN')}</td>
-                <td>{a.activeDays}</td>
-                <td><span className="badge badge-plan">{a.avgPerDay}</span></td>
-                <td>{a.avgAmount.toLocaleString('en-IN')}</td>
-              </tr>
-            ))}
+            {sorted.map((a, i) => {
+              const expanded = expandedAgent === a.name
+              return (
+              <Fragment key={a.name}>
+                <tr style={{ cursor: 'pointer' }} onClick={() => setExpandedAgent(expanded ? null : a.name)}>
+                  <td><span className="expand-arrow">{expanded ? '▼' : '▶'}</span></td>
+                  <td><strong>{i + 1}</strong></td>
+                  <td><strong>{a.name}</strong></td>
+                  <td>{a.totalOrders}</td>
+                  <td className="amount">{a.totalAmount.toLocaleString('en-IN')}</td>
+                  <td className="amount">{a.totalPrepay.toLocaleString('en-IN')}</td>
+                  <td className="cod">{a.totalCOD.toLocaleString('en-IN')}</td>
+                  <td>{a.activeDays}</td>
+                  <td><span className="badge badge-plan">{a.avgPerDay}</span></td>
+                  <td>{a.avgAmount.toLocaleString('en-IN')}</td>
+                </tr>
+                {expanded && (
+                  <tr className="links-row">
+                    <td colSpan={10}>
+                      <div className="links-dropdown" style={{ padding: 12 }}>
+                        <div className="match-section-title order-title" style={{ marginBottom: 8 }}>
+                          {a.name} — All Sales ({a.orders.length} orders)
+                        </div>
+                        <table className="inner-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Date</th>
+                              <th>Customer Name</th>
+                              <th>Phone</th>
+                              <th>Doctor</th>
+                              <th>Amount</th>
+                              <th>Prepay</th>
+                              <th>COD</th>
+                              <th>Plan Type</th>
+                              <th>Order Type</th>
+                              <th>Location</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...a.orders]
+                              .sort((x, y) => (x.date || '').localeCompare(y.date || ''))
+                              .map((o, j) => (
+                                <tr key={j}>
+                                  <td>{j + 1}</td>
+                                  <td>{o.date}</td>
+                                  <td><strong>{o.name}</strong></td>
+                                  <td>{o.phone || <span className="badge badge-mismatch">N/A</span>}</td>
+                                  <td>{o.doctor}</td>
+                                  <td className="amount">{o.orderAmount}</td>
+                                  <td className="amount">{o.prepayAmount}</td>
+                                  <td className="cod">{o.codAmount}</td>
+                                  <td>{o.planType && <span className="badge badge-plan">{o.planType}</span>}</td>
+                                  <td>{o.orderType && <span className="badge badge-order-type">{o.orderType}</span>}</td>
+                                  <td>{o.location}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>

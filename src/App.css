@@ -550,6 +550,18 @@ tr:hover {
   background: #c7d2fe;
 }
 
+/* Full-URL link: shows the entire URL, wraps if long */
+.link-btn-full {
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.4;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 4px 8px;
+}
+
 /* Loading & Error */
 .loading {
   text-align: center;
@@ -664,6 +676,7 @@ tr:hover {
   gap: 10px;
   margin-bottom: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .setup-or-row {
@@ -723,13 +736,16 @@ tr:hover {
 }
 
 .setup-input-name {
-  width: 120px;
-  flex-shrink: 0;
+  flex: 1 1 240px;
+  min-width: 200px;
   padding: 12px 16px;
   border: 1.5px solid #ddd;
   border-radius: 10px;
   font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
   background: #fafafa;
+  text-overflow: ellipsis;
 }
 
 .setup-input-name:focus {
@@ -739,8 +755,8 @@ tr:hover {
 }
 
 .setup-type {
-  width: 200px;
-  flex-shrink: 0;
+  flex: 0 1 240px;
+  min-width: 180px;
   padding: 12px 10px;
   border: 1.5px solid #ddd;
   border-radius: 10px;

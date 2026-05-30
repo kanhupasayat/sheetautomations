@@ -27,7 +27,19 @@ function sheetUrlToCsv(url) {
 }
 
 const STORAGE_KEY = 'sheetautomations_urls'
-const STAFF_MAPPING_KEY = 'sheetautomations_staff_mapping_v3'
+const STAFF_MAPPING_KEY = 'sheetautomations_staff_mapping_v4'
+const EOD_CONFIG_VERSION = 2
+
+const SHEET_DOC_ID = '1R5CjEiRrX5tb_vEHivAZfFnrRVdTb7eDeNB1fCGpiVo'
+const sheetTabUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SHEET_DOC_ID}/edit?gid=${gid}`
+
+const DEFAULT_EOD_SHEETS = [
+  { url: sheetTabUrl('0'),          name: 'Assessment Self Serve',     type: 'eod1' },
+  { url: sheetTabUrl('764248099'),  name: 'About to Get Married',      type: 'eod2' },
+  { url: sheetTabUrl('666543305'),  name: 'EOD Reports System',        type: 'eod3' },
+  { url: sheetTabUrl('1018690895'), name: 'Retention / Service',       type: 'eod3' },
+  { url: sheetTabUrl('541302532'),  name: 'Assessment Agent Led',      type: 'eod1' },
+]
 
 const DEFAULT_STAFF_NAMES = [
   ['shazan'],
@@ -56,6 +68,7 @@ const DEFAULT_STAFF_NAMES = [
   ['akash gautam', 'akash'],
   ['deepak raghuwanshi'],
   ['sumit'],
+  ['sumit raghuwanshi'],
   ['alam', 'alam uddin'],
   ['riyan'],
   ['manish'],
@@ -93,7 +106,16 @@ const DEFAULT_STAFF_NAMES = [
 function loadSavedUrls() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved)
+    if (!saved) return null
+    const parsed = JSON.parse(saved)
+    // One-time migration: seed the 5 known EOD sheets so user does not
+    // have to re-enter URLs/types after the schema change
+    if (parsed.eodConfigVersion !== EOD_CONFIG_VERSION) {
+      parsed.eodUrls = DEFAULT_EOD_SHEETS
+      parsed.eodConfigVersion = EOD_CONFIG_VERSION
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)) } catch (e) {}
+    }
+    return parsed
   } catch (e) {}
   return null
 }
@@ -181,40 +203,34 @@ function orderRowToObj(row) {
 }
 
 function eodRowToObj(row, sheetName, sheetType) {
-  if (sheetType === 'eod1') {
-    // EOD 1: Date, Agent Name, Total Plans, Deal/Invoice Link, Link Number, Submitted At
-    return {
-      reportDate: row[0] || '',
-      agentName: row[1] || '',
-      dealNumber: row[2] || '',
-      dealLink: row[3] || '',
-      submittedAt: row[4] || '',
-      timestamp: row[5] || '',
-      source: sheetName,
-    }
-  }
+  let reportDate, agentName, dealNumber, dealLink, submittedAt, timestamp
   if (sheetType === 'eod2') {
     // EOD 2: Report Date, Agent Name, Deal Number, Deal/Invoice Link, Submitted At (timestamp)
-    return {
-      reportDate: row[0] || '',
-      agentName: row[1] || '',
-      dealNumber: row[2] || '',
-      dealLink: row[3] || '',
-      submittedAt: '',
-      timestamp: row[4] || '',
-      source: sheetName,
-    }
+    reportDate = row[0] || ''
+    agentName = row[1] || ''
+    dealNumber = row[2] || ''
+    dealLink = row[3] || ''
+    submittedAt = ''
+    timestamp = row[4] || ''
+  } else {
+    // EOD 1 & EOD 3 share the same column layout:
+    // Date, Agent, Plans/Payments, Link, Link Number, Timestamp[, Checked]
+    reportDate = row[0] || ''
+    agentName = row[1] || ''
+    dealNumber = row[2] || ''
+    dealLink = row[3] || ''
+    submittedAt = row[4] || ''
+    timestamp = row[5] || ''
   }
-  // EOD 3: Report Date, Agent Name, Total Payments, Deal Link, Link Number, Timestamp, Checked
-  return {
-    reportDate: row[0] || '',
-    agentName: row[1] || '',
-    dealNumber: row[2] || '',
-    dealLink: row[3] || '',
-    submittedAt: row[4] || '',
-    timestamp: row[5] || '',
-    source: sheetName,
+
+  // Fallback: if Report Date is blank/unparseable, derive from the submission timestamp
+  // (handles rows where the agent missed filling the Date column in the Form)
+  if (!normalizeDate(reportDate) && timestamp) {
+    const m = String(timestamp).match(/^(\d{4}-\d{2}-\d{2})/)
+    if (m) reportDate = m[1]
   }
+
+  return { reportDate, agentName, dealNumber, dealLink, submittedAt, timestamp, source: sheetName }
 }
 
 function getUniqueValues(data, key) {
@@ -230,28 +246,50 @@ function getUniqueValues(data, key) {
 }
 
 // Normalize date to yyyy-mm-dd string for comparison
+// Tolerant of trailing time/timezone (e.g. "2026-05-12 14:30:00", "12/5/2026 14:30")
 function normalizeDate(dateStr) {
   if (!dateStr) return ''
-  const d = dateStr.trim()
-  // yyyy-mm-dd already (EOD sheets)
-  if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
-  // dd/mm/yyyy, d/m/yyyy, dd-mm-yyyy, d-m-yyyy (Order sheet)
-  const slash = d.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/)
-  if (slash) {
-    let day = slash[1].padStart(2, '0')
-    let month = slash[2].padStart(2, '0')
-    let year = parseInt(slash[3])
+  const orig = String(dateStr).trim()
+  if (!orig) return ''
+  const MONTHS = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' }
+
+  // ISO: 2026-05-12 or 2026/5/12, with optional T/space + time
+  let m = orig.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+
+  // dd/mm/yyyy, d/m/yy, dd-mm-yyyy, dd.mm.yyyy — with optional trailing time
+  m = orig.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/)
+  if (m) {
+    const day = m[1].padStart(2, '0')
+    const month = m[2].padStart(2, '0')
+    let year = parseInt(m[3])
     if (year < 100) year += 2000 // 26 -> 2026
     if (year < 2000) year = 2026 // fix typos like 1026
     return `${year}-${month}-${day}`
   }
-  // "1 Mar", "5 March" etc
-  const text = d.match(/^(\d{1,2})\s+(\w+)/)
-  if (text) {
-    const months = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' }
-    const m = months[text[2].toLowerCase().slice(0, 3)]
-    if (m) return `2026-${m}-${text[1].padStart(2, '0')}`
+
+  // "12 May 2026", "12-May-2026", "12 May" (year defaults to current)
+  m = orig.match(/^(\d{1,2})[\s\-]+([A-Za-z]{3,9})(?:[\s\-,]+(\d{2,4}))?/)
+  if (m) {
+    const mo = MONTHS[m[2].toLowerCase().slice(0, 3)]
+    if (mo) {
+      let year = m[3] ? parseInt(m[3]) : new Date().getFullYear()
+      if (year < 100) year += 2000
+      return `${year}-${mo}-${m[1].padStart(2, '0')}`
+    }
   }
+
+  // "May 12 2026", "May 12, 2026", "May 12"
+  m = orig.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:[\s,]+(\d{2,4}))?/)
+  if (m) {
+    const mo = MONTHS[m[1].toLowerCase().slice(0, 3)]
+    if (mo) {
+      let year = m[3] ? parseInt(m[3]) : new Date().getFullYear()
+      if (year < 100) year += 2000
+      return `${year}-${mo}-${m[2].padStart(2, '0')}`
+    }
+  }
+
   return ''
 }
 
@@ -354,28 +392,39 @@ function MatchTable({ data }) {
                             EOD Links - {row.agent} ({row.date}) - <strong>{row.links?.length || 0} links</strong>
                           </div>
                           <div className="links-list">
-                            {(row.links || []).map((item, j) => {
-                              const linkStr = typeof item === 'string' ? item : item.link
-                              const source = typeof item === 'string' ? '' : item.source
-                              const url = (linkStr || '').split(/\s+/)[0].trim()
-                              const module = url.match(/tab\/(\w+)/)
-                              const isDupe = row.links.some((other, k) => {
-                                if (k === j) return false
-                                const otherUrl = (typeof other === 'string' ? other : other.link || '').split(/\s+/)[0].trim().toLowerCase()
-                                return otherUrl === url.toLowerCase()
+                            {(() => {
+                              // First pass: record the first index where each URL was seen,
+                              // so we mark only later occurrences as duplicates (not the original)
+                              const firstSeen = new Map()
+                              ;(row.links || []).forEach((item, idx) => {
+                                const u = (typeof item === 'string' ? item : item.link || '')
+                                  .split(/\s+/)[0].trim().toLowerCase()
+                                if (u && !firstSeen.has(u)) firstSeen.set(u, idx)
                               })
-                              return (
-                                <div key={j} className={`link-item ${isDupe ? 'link-dupe' : ''}`}>
-                                  <span className="link-num">{j + 1}</span>
-                                  {module && <span className="badge badge-plan">{module[1]}</span>}
-                                  {source && <span className="badge badge-order-type">{source}</span>}
-                                  {isDupe && <span className="badge badge-mismatch">Duplicate</span>}
-                                  <a href={url} target="_blank" rel="noreferrer" className="link-btn">
-                                    {url.length > 60 ? url.slice(0, 60) + '...' : url}
-                                  </a>
-                                </div>
-                              )
-                            })}
+                              return (row.links || []).map((item, j) => {
+                                const linkStr = typeof item === 'string' ? item : item.link
+                                const source = typeof item === 'string' ? '' : item.source
+                                const url = (linkStr || '').split(/\s+/)[0].trim()
+                                const module = url.match(/tab\/(\w+)/)
+                                const firstIdx = firstSeen.get(url.toLowerCase())
+                                const isDupe = firstIdx !== undefined && firstIdx !== j
+                                return (
+                                  <div key={j} className={`link-item ${isDupe ? 'link-dupe' : ''}`}>
+                                    <span className="link-num">{j + 1}</span>
+                                    {module && <span className="badge badge-plan">{module[1]}</span>}
+                                    {source && <span className="badge badge-order-type">{source}</span>}
+                                    {isDupe && (
+                                      <span className="badge badge-mismatch" title={`Duplicate of #${firstIdx + 1}`}>
+                                        Duplicate of #{firstIdx + 1}
+                                      </span>
+                                    )}
+                                    <a href={url} target="_blank" rel="noreferrer" className="link-btn link-btn-full">
+                                      {url}
+                                    </a>
+                                  </div>
+                                )
+                              })
+                            })()}
                             {(!row.links || row.links.length === 0) && <div className="no-data" style={{ padding: 12 }}>No EOD links found</div>}
                           </div>
                         </div>
@@ -631,7 +680,7 @@ function App() {
     if (savedConfig?.orderUrl) return [{ url: savedConfig.orderUrl, name: 'Orders' }]
     return [{ url: '', name: 'Orders' }]
   })
-  const [eodUrls, setEodUrls] = useState(savedConfig?.eodUrls || [{ url: '', name: 'EOD 1', type: 'eod1' }])
+  const [eodUrls, setEodUrls] = useState(savedConfig?.eodUrls || DEFAULT_EOD_SHEETS)
   const [orderCsvFiles, setOrderCsvFiles] = useState([])
   const [eodCsvFiles, setEodCsvFiles] = useState([])
 
@@ -750,7 +799,8 @@ function App() {
           if (lines.length > 1) {
             lines.slice(1).forEach((row) => {
               const obj = eodRowToObj(row, name, type)
-              if (obj.agentName) allEod.push(obj)
+              const agent = (obj.agentName || '').trim().toLowerCase()
+              if (agent && agent !== 'undefined' && agent !== 'null') allEod.push(obj)
             })
           }
         })
@@ -762,7 +812,7 @@ function App() {
   }
 
   function handleLoadData() {
-    const config = { orderUrls, eodUrls }
+    const config = { orderUrls, eodUrls, eodConfigVersion: EOD_CONFIG_VERSION }
     saveUrls(config)
     fetchData(orderUrls, eodUrls, orderCsvFiles, eodCsvFiles)
   }
@@ -1073,16 +1123,25 @@ function App() {
 
   // --- Matching: EOD vs Orders ---
   const matchData = useMemo(() => {
-    // Group EOD by agent+date: count = actual links submitted (works for all EOD types,
-    // including EOD 2 where the third column is a deal ID, not a count)
+    // Group EOD by agent+date. Deduplicate links WITHIN each agent+date group
+    // (so the same link submitted twice by one agent counts once) but DO NOT
+    // dedupe across agents — different agents claiming the same link must each
+    // keep their row here; cross-agent dupes are surfaced in the Duplicates tab.
     const eodMap = new Map()
+    const seenPerGroup = new Map() // group key -> Set of seen URLs
     eodData.forEach((row) => {
       const key = `${row.agentName.trim().toLowerCase()}|${normalizeDate(row.reportDate)}`
       if (!eodMap.has(key)) {
         eodMap.set(key, { agent: row.agentName.trim(), date: row.reportDate, links: [] })
+        seenPerGroup.set(key, new Set())
       }
       const entry = eodMap.get(key)
-      if (row.dealLink) entry.links.push({ link: row.dealLink, source: row.source })
+      const seen = seenPerGroup.get(key)
+      const url = (row.dealLink || '').split(/\s+/)[0].trim().toLowerCase()
+      if (row.dealLink && url && !seen.has(url)) {
+        entry.links.push({ link: row.dealLink, source: row.source })
+        seen.add(url)
+      }
     })
 
     // Group Orders by supportStaff+date (with details)
@@ -1453,7 +1512,10 @@ function App() {
                       <td>{row.reportDate}</td>
                       <td><strong>{row.agentName}</strong></td>
                       <td>{row.dealNumber}</td>
-                      <td>{row.dealLink ? <a href={row.dealLink.split(/\s+/)[0]} target="_blank" rel="noreferrer" className="link-btn">Open</a> : ''}</td>
+                      <td>{row.dealLink ? (() => {
+                        const u = row.dealLink.split(/\s+/)[0]
+                        return <a href={u} target="_blank" rel="noreferrer" className="link-btn link-btn-full">{u}</a>
+                      })() : ''}</td>
                       <td>{row.submittedAt}</td>
                       <td><span className="badge badge-plan">{row.source}</span></td>
                       <td>{row.timestamp ? new Date(row.timestamp).toLocaleString('en-IN') : ''}</td>
@@ -1614,7 +1676,10 @@ function App() {
                       <td><strong>{row.agent}</strong></td>
                       <td>{row.date}</td>
                       <td><span className="badge badge-plan">{row.source}</span></td>
-                      <td>{row.link ? <a href={row.link.split(/\s+/)[0]} target="_blank" rel="noreferrer" className="link-btn">Open</a> : ''}</td>
+                      <td>{row.link ? (() => {
+                        const u = row.link.split(/\s+/)[0]
+                        return <a href={u} target="_blank" rel="noreferrer" className="link-btn link-btn-full">{u}</a>
+                      })() : ''}</td>
                       <td>{row.firstAgent}</td>
                       <td>{row.firstDate}</td>
                       <td><span className="badge badge-plan">{row.firstSource}</span></td>
