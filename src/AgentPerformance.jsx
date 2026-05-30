@@ -160,6 +160,15 @@ export default function AgentPerformance({ data }) {
                                 </tr>
                               ))}
                           </tbody>
+                          <tfoot>
+                            <tr style={{ fontWeight: 700, borderTop: '2px solid #cbd5e1' }}>
+                              <td colSpan={5} style={{ textAlign: 'right' }}>Total ({a.orders.length} orders)</td>
+                              <td className="amount">{a.totalAmount.toLocaleString('en-IN')}</td>
+                              <td className="amount">{a.totalPrepay.toLocaleString('en-IN')}</td>
+                              <td className="cod">{a.totalCOD.toLocaleString('en-IN')}</td>
+                              <td colSpan={3}></td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     </td>
